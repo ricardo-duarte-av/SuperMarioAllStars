@@ -33,6 +33,10 @@ Downloads folder. The AppImage carries SDL2 (and SDL3 under sdl2-compat) and the
 sound and the C library are the system's, so it runs on distributions as new as the one it was built on or
 newer. **An AppImage with the ROM in it is for your own use: don't share it.**
 
+GitHub Actions (`.github/workflows/linux-appimage.yml`) builds the AppImage without a ROM on every push, on
+Ubuntu 22.04 so it runs on distributions from then on. Each push to `main` replaces it on the *Continuous build*
+pre-release; pushing a tag `v*` (`git tag v1.1 && git push origin v1.1`) publishes a release of that name.
+
 On Linux the AppImage is portable: settings, saves, states and screenshots go in the folder the AppImage is in
 (put it in a folder of its own). Where that folder can't be written to, and for the program run from
 `build_linux`, they go to `~/.local/share/SuperMarioAllStars` (or beside the program when a file named
