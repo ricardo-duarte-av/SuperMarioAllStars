@@ -2,8 +2,13 @@
 #include "platform/android/video_gles.h"
 #include <SDL.h>
 #include <GLES3/gl3.h>
+#ifdef __ANDROID__
 #include <android/log.h>
 #include <jni.h>
+#else
+#include <cstdio>
+#include "platform/linux/glyphs.h"
+#endif
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -13,7 +18,11 @@
 
 namespace {
 
+#ifdef __ANDROID__
 void logError(const char* msg) { __android_log_print(ANDROID_LOG_ERROR, "SmasPort", "%s", msg); }
+#else
+void logError(const char* msg) { fprintf(stderr, "SmasPort: %s\n", msg); }
+#endif
 
 GLuint compile(GLenum type, const std::string& src) {
   GLuint s = glCreateShader(type);
@@ -678,13 +687,14 @@ bool GlesCanvas::buildFont(Font& f, float px, bool bold, bool title) {
   for (uint32_t c = 0xA1; c < 0x100; c++)
     if (c != 0xAD) cps.push_back(c);
   for (uint32_t c : kExtraCps) cps.push_back(c);
+  std::vector<int> meta;
+  std::vector<uint8_t> bits;
+#ifdef __ANDROID__
   JNIEnv* env = (JNIEnv*)SDL_AndroidGetJNIEnv();
   jobject act = (jobject)SDL_AndroidGetActivity();
   if (!env || !act) return false;
   jclass cls = env->GetObjectClass(act);
   jmethodID m = env->GetStaticMethodID(cls, "renderGlyphs", "([IFZZ[I)[B");
-  std::vector<int> meta;
-  std::vector<uint8_t> bits;
   if (m) {
     jintArray jcps = env->NewIntArray((jsize)cps.size());
     std::vector<jint> tmp(cps.begin(), cps.end());
@@ -706,6 +716,10 @@ bool GlesCanvas::buildFont(Font& f, float px, bool bold, bool title) {
   env->ExceptionClear();
   env->DeleteLocalRef(cls);
   env->DeleteLocalRef(act);
+#else
+  // (Linux: stb_truetype over the bundled or the system's fonts, see platform/linux/glyphs.h)
+  renderGlyphs(cps, px, bold, title, meta, bits);
+#endif
   if (meta.empty()) return false;
   f.ascent = meta[0];
   f.lineH = meta[1];

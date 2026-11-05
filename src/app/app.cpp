@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <filesystem>
@@ -85,7 +86,14 @@ bool App::loadRom() {
   // (Another version or dump than the USA one: it runs, the card's ROM line in
   // amber; widescreen, cheats and the level select are tuned for the USA one.)
   const std::string remembered = narrow(path) + "\n";
-  writeAll(pathJoin(exeDir, L"rompath.txt"), remembered.data(), remembered.size());
+#if !defined(_WIN32) && !defined(__ANDROID__)
+  // (Linux: not a ROM inside the AppImage, whose mount point changes each start; it is found there anyway)
+  const char* appdir = getenv("APPDIR");
+  const bool inAppImage = appdir && *appdir && remembered.rfind(appdir, 0) == 0;
+#else
+  const bool inAppImage = false;
+#endif
+  if (!inAppImage) writeAll(pathJoin(exeDir, L"rompath.txt"), remembered.data(), remembered.size());
   romPath = path;
   romExact = exact;
   game.reset();  // (before the Snes it points at: its destructor uses it)
@@ -528,7 +536,7 @@ void App::readPlayer(int p, uint16_t* out, double dt) {
       if (edge(kActLoadState)) loadState(stateSlot);
       if (edge(kActScreenshot)) screenshot();
     }
-#ifdef _WIN32
+#ifndef __ANDROID__
     if (!menu.open()) {
       if (edge(kActFullscreen)) {
         cfg.displayMode = cfg.displayMode == DisplayMode::Windowed ? DisplayMode::Borderless : DisplayMode::Windowed;
@@ -747,7 +755,7 @@ std::shared_ptr<MenuPage> App::pageMain() {
       menu.confirm("Return to the launcher?", [this]() { returnToLauncher(); },
                    "Progress is kept only if the game saved it.");
     }, "Leave this game for the launcher, to pick another."));
-#ifdef _WIN32
+#ifndef __ANDROID__
     pg.items.push_back(MenuItem::action("Quit to Desktop", [this]() {
       menu.confirm("Quit to desktop?", [this]() { running = false; },
 #else
@@ -1050,6 +1058,17 @@ std::shared_ptr<MenuPage> App::pageDisplay() {
   p->title = "Display";
   p->rebuild = [this](MenuPage& pg) {
     pg.items.clear();
+#if !defined(_WIN32) && !defined(__ANDROID__)
+    pg.items.push_back(MenuItem::choice(
+        "Display Mode", {"Windowed", "Fullscreen"},
+        [this]() { return cfg.displayMode == DisplayMode::Windowed ? 0 : 1; },
+        [this](int v) {
+          cfg.displayMode = v ? DisplayMode::Borderless : DisplayMode::Windowed;
+          applyDisplayMode();
+          menu.refresh();
+        },
+        "Alt+Enter or F11 toggles it."));
+#endif
 #ifdef _WIN32
     pg.items.push_back(MenuItem::choice(
         "Display Mode", {"Windowed", "Borderless Fullscreen", "Exclusive Fullscreen"},

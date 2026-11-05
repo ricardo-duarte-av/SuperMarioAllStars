@@ -15,6 +15,32 @@ build.bat
 ```
 The program is written to `build\Release\SuperMarioAllStars.exe`.
 
+### Linux
+The Linux build uses the Android build's SDL2 + OpenGL ES 3.0 layer (`src/platform/android`) with a desktop
+front end (`src/platform/linux`); the text is drawn with stb_truetype (`third_party/stb`). You need CMake 3.20+,
+a C++17 compiler, SDL2 development files (Fedora `sdl2-compat-devel`, Debian/Ubuntu `libsdl2-dev`, Arch `sdl2`)
+and OpenGL ES 3 headers (Fedora `mesa-libGLES-devel`, Debian/Ubuntu `libgles-dev`). Then:
+
+```
+./build.sh                    # the program, then an AppImage with your ROM in it
+./build.sh --rom path/to.sfc  # ... with this ROM
+./build.sh --no-rom           # an AppImage without a ROM (it asks for one)
+./build.sh --no-appimage      # the program only
+```
+The program is written to `build_linux/SuperMarioAllStars` and the AppImage to `dist/` (appimagetool is
+downloaded the first time). The ROM is found automatically in this folder, a `roms` folder here or your
+Downloads folder. The AppImage carries SDL2 (and SDL3 under sdl2-compat) and the UI fonts; graphics drivers,
+sound and the C library are the system's, so it runs on distributions as new as the one it was built on or
+newer. **An AppImage with the ROM in it is for your own use: don't share it.**
+
+On Linux the AppImage is portable: settings, saves, states and screenshots go in the folder the AppImage is in
+(put it in a folder of its own). Where that folder can't be written to, and for the program run from
+`build_linux`, they go to `~/.local/share/SuperMarioAllStars` (or beside the program when a file named
+`portable` is there). The ROM is looked for there and in a `roms` folder in it, beside
+the program (and up to three folders above it), beside the AppImage and in the current folder; without one,
+click the launcher's card to pick it (zenity or kdialog) or drop the `.sfc` on the window. F11 or Alt+Enter
+toggles fullscreen (also *Options → Display*). Touch screens (Steam Deck) get the on-screen pad as on Android.
+
 ### Android
 The same code builds for Android (`android/`), as the Mickey & Donald Collection's does: SDL2 2.32.10
 compiled from source for the window, sound and controllers, OpenGL ES 3.0 for the picture. You need the
@@ -40,7 +66,8 @@ To start a game directly, give `SuperMarioAllStars.exe` the argument `--game smb
 `--game smb2` or `--game smb3` (for example in a shortcut).
 
 Battery saves go to `saves\smas.srm`, save states to `saves\`,
-screenshots to `screenshots\`, settings to `smas_port.ini`. Files are written in full before
+screenshots to `screenshots\`, settings to `smas_port.ini` (beside the executable on Windows; on Linux
+beside the AppImage, never inside it, or in `~/.local/share/SuperMarioAllStars`: see *Building → Linux*). Files are written in full before
 they replace the old ones, so a full disk can't leave a truncated save (you are told the save
 failed instead). Save states carry a checksum: a damaged one is refused rather than loaded. They
 also keep the widescreen state, so a state loads exactly as it was saved, and one saved at a

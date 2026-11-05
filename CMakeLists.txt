@@ -37,6 +37,7 @@ target_include_directories(smascore PUBLIC src)
 add_executable(smastool tools/smastool.cpp)
 target_link_libraries(smastool smascore)
 
+if(WIN32)
 add_executable(SuperMarioAllStars WIN32
   src/app/app.cpp
   src/app/app_win.cpp
@@ -68,3 +69,47 @@ add_custom_command(TARGET SuperMarioAllStars POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/third_party/slang-shaders $<TARGET_FILE_DIR:SuperMarioAllStars>/shaders
   COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/release/README.txt $<TARGET_FILE_DIR:SuperMarioAllStars>
   COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/third_party/librashader/LICENSE.md $<TARGET_FILE_DIR:SuperMarioAllStars>/librashader-LICENSE.md)
+else()
+  # Linux: the Android build's SDL2 / OpenGL ES 3.0 platform layer (src/platform/android) with a
+  # desktop front end (src/platform/linux). Needs SDL2 (or sdl2-compat) and an OpenGL ES 3 driver
+  # (Mesa and NVIDIA's both provide one through libglvnd).
+  if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+  endif()
+  find_package(SDL2 REQUIRED)
+  find_library(GLESV2_LIBRARY NAMES GLESv2 REQUIRED)
+  find_path(GLES3_INCLUDE_DIR GLES3/gl3.h REQUIRED)
+  # (the emulation core needs optimising even in debug builds to run at full speed)
+  target_compile_options(smascore PRIVATE -O2)
+  add_executable(SuperMarioAllStars
+    src/app/app.cpp
+    src/app/config.cpp
+    src/app/menu.cpp
+    src/app/launcher.cpp
+    src/app/music.cpp
+    src/app/achstore.cpp
+    src/app/utf8.cpp
+    src/app/sys_posix.cpp
+    src/platform/linux/app_linux.cpp
+    src/platform/linux/glyphs.cpp
+    src/platform/android/video_gles.cpp
+    src/platform/android/audio_sdl.cpp
+    src/platform/android/input_sdl.cpp
+    src/platform/android/touch.cpp
+  )
+  target_include_directories(SuperMarioAllStars PRIVATE ${GLES3_INCLUDE_DIR} third_party/stb)
+  target_compile_options(SuperMarioAllStars PRIVATE -O2 -Wno-unused-parameter -Wno-sign-compare)
+  if(TARGET SDL2::SDL2)
+    target_link_libraries(SuperMarioAllStars PRIVATE smascore SDL2::SDL2 ${GLESV2_LIBRARY} pthread)
+  else()
+    target_include_directories(SuperMarioAllStars PRIVATE ${SDL2_INCLUDE_DIRS})
+    target_link_libraries(SuperMarioAllStars PRIVATE smascore ${SDL2_LIBRARIES} ${GLESV2_LIBRARY} pthread)
+  endif()
+  # (the C++ runtime built in: the AppImage runs where the system's libstdc++ is older)
+  target_link_options(SuperMarioAllStars PRIVATE -static-libstdc++ -static-libgcc)
+  # $ORIGIN: libraries bundled beside it (the AppImage) are found
+  set_target_properties(SuperMarioAllStars PROPERTIES BUILD_RPATH "$ORIGIN" INSTALL_RPATH "$ORIGIN/../lib")
+  add_custom_command(TARGET SuperMarioAllStars POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/third_party/fonts/LuckiestGuy-Regular.ttf $<TARGET_FILE_DIR:SuperMarioAllStars>
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/release/README.txt $<TARGET_FILE_DIR:SuperMarioAllStars>)
+endif()

@@ -1,0 +1,46 @@
+# Builds the Linux AppImage (without a ROM: players supply their own) on every
+# push, and keeps it as the run's artifact. Ubuntu 22.04 on purpose: an AppImage
+# runs on distributions with the glibc it was built with or newer, and 22.04's
+# (2.35) is older than most in use.
+name: Linux AppImage
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  appimage:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build g++ pkg-config file \
+            libsdl2-dev libgles-dev \
+            fontconfig fonts-dejavu-core fonts-noto-core
+
+      - name: Build the program and the AppImage (no ROM)
+        run: ./build.sh --no-rom
+
+      - name: Check the AppImage
+        run: |
+          set -e
+          f=dist/SuperMarioAllStars-norom-x86_64.AppImage
+          test -x "$f"
+          file "$f"
+          # (no ROM may ever be in it)
+          if find build_linux/AppDir \( -iname '*.sfc' -o -iname '*.smc' \) | grep .; then
+            echo "a ROM is in the AppDir" >&2
+            exit 1
+          fi
+          APPIMAGE_EXTRACT_AND_RUN=1 "$f" --help
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SuperMarioAllStars-norom-x86_64-AppImage
+          path: dist/SuperMarioAllStars-norom-x86_64.AppImage
+          if-no-files-found: error
